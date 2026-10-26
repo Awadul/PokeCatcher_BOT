@@ -5,49 +5,31 @@ dotenv.config();
 
 
 const client = new Client();
-BOT_ID = process.env.BOT_ID;
 let remainingCatchedForHour = 0;
 let requestProcessing = false;
-const processedButtons = new Set();
+const processedcatchButtons = new Set();
+const CATCH_DELAY = 15 * 60 * 1000;
+const BOT_ID = process.env.BOT_ID;
 
-// testing the bot to send a message to the channel
-// messageCreate event = when a message is sent in the channel
-client.on('messageCreate', async (message) => {
-
-    if (message.channel.id === process.env.CHANNEL_ID) {
-
-        if (message.content === `!test`) {
-            // Reset lock and cleared clicked buttons cache on manual/scheduled test command
-            requestProcessing = false;
-            processedButtons.clear();
-
-            // send a slash command to the channel
-            // sendSlash(target: UserResolvable, commandName: string, ...args: any[]): Promise<Message | Modal>;
-            // set the options for the slash command ; type: egg
-            await message.channel.sendSlash(BOT_ID, 'pokemon');
-
-            // the bot replies and updates the prvious message
-            // we need to work on the updated message
-
-        }   
-
-        // console.log(message)
-    }
-
-})
+// messageCreate event => when a message is sent in the channel
+// client.on('messageCreate', async (message) => {
+//     if (message.channel.id === process.env.CHANNEL_ID) { }
+// })
 
 
 client.on('messageUpdate', async (oldMessge, newMessage) => {
 
+    // if the message is not from chosen channel -> return
     if (newMessage.channel.id !== process.env.CHANNEL_ID) return;
+    // if we didn't create the message -> return
     if (newMessage.author.id !== BOT_ID) return;
 
     console.log('updated message', newMessage, '\n\n\n');
 
-    const button = newMessage.components[0]?.components[0]
-    if (!button) return;
+    const catchButton = newMessage.components[0]?.components[0]
+    if (!catchButton) return;
 
-    console.log('\n\n\n\n\n\n\n\n\n\n\n\n\n\nRow Components: ', button)
+    console.log('\n\n\n\n\n\n\n\n\n\n\n\n\n\nRow Components: ', catchButton)
 
     // Dynamically find the embed containing the wild pokemon appearance or roll count details
     const targetEmbed = newMessage.embeds.find(embed =>
@@ -63,39 +45,40 @@ client.on('messageUpdate', async (oldMessge, newMessage) => {
     }
 
     try {
-        if (button.data.label === 'Catch' && targetEmbed?.title?.toLowerCase().includes('appeared')) {
-            // If the catch is issued, we set requestProcessing to true to acquire the lock.
-            // Any further processing of 'Catch' is ignored until the lock is released.
+        if ((catchButton.data?.label === 'Catch' || catchButton.label === 'Catch') && targetEmbed?.title?.toLowerCase().includes('appeared')) {
+
             if (requestProcessing) return;
 
-            // Make sure the button has a valid customId and is not disabled
-            const customId = button.customId || button.data.custom_id;
-            if (!customId || button.disabled) {
-                console.log('Catch button is disabled or lacks a customId, skipping click.');
+            // Make sure the catchButton has a valid customId and is not disabled
+            const customId = catchButton.customId || catchButton.data.custom_id;
+            if (!customId || catchButton.disabled) {
+                console.log('Catch Button is disabled or lacks a customId, skipping click.');
                 return;
             }
 
-            // Prevent double-clicking the same button customId
-            if (processedButtons.has(customId)) {
-                console.log('Already clicked this button customId:', customId);
+            // Prevent double-clicking the same catchButton customId
+            if (processedcatchButtons.has(customId)) {
+                console.log('Already clicked this catchButton customId:', customId);
                 return;
             }
 
+            // If the catch is issued, we set requestProcessing to true to acquire the lock.
             requestProcessing = true;
-            processedButtons.add(customId);
-            if (processedButtons.size > 100) {
-                processedButtons.clear();
+            if (processedcatchButtons.size > 100) {
+                processedcatchButtons.clear();
             }
+            processedcatchButtons.add(customId);
 
-            console.log('Clicking Catch button...');
+            console.log('Clicking Catch Button...');
             await newMessage.clickButton(customId);
 
-        } else if (button.data.label === 'Roll Again') {
+        } else if (catchButton.data.label === 'Roll Again') {
             // When 'Roll Again' appears, it means the catch has completed.
             // We remove the lock and send a new /pokemon command.
             if (requestProcessing) {
                 console.log('Catch completed. Releasing lock and triggering next roll.');
                 requestProcessing = false;
+
                 if (remainingCatchedForHour > 0) {
                     await pokemonCommand();
                 }
@@ -108,30 +91,40 @@ client.on('messageUpdate', async (oldMessge, newMessage) => {
     }
 })
 
-const ONE_HOUR = 15 * 60 * 1000;
 // running a clock to make sure that after every hour timely reset the bot works again and completes the catching
 const invokeBot = async () => {
-    const channel = await client.channels.fetch(process.env.CHANNEL_ID);
-    await channel.send('!test');
+    requestProcessing = false;
+    processedcatchButtons.clear();
+    await pokemonCommand();
 }
 
-// function to send the pokemon command
+// /pokemon
 const pokemonCommand = async () => {
-    const channel = await client.channels.fetch(process.env.CHANNEL_ID);
-    await channel.sendSlash(BOT_ID, 'pokemon');
+    try {
+        const channel = await client.channels.fetch(process.env.CHANNEL_ID);
+        await channel.sendSlash(BOT_ID, 'pokemon');
+    } catch (error) {
+        console.error(`[pokemonCommand Error]: `, error);
+        requestProcessing = false;
+    }
 }
 
+// /pokestop
 const pokeStopCommand = async () => {
-    const channel = await client.channels.fetch(process.env.CHANNEL_ID);
-    await channel.sendSlash(BOT_ID, 'pokestop');
+    try {
+        const channel = await client.channels.fetch(process.env.CHANNEL_ID);
+        await channel.sendSlash(BOT_ID, 'pokestop');
+    } catch (error) {
+        console.error(`[pokemonCommand Error]: `, error);
+    }
 }
 
-client.on('ready', async () => {
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
 
     // invoking the bot on start and setting interval for after every 1 hour to catch pokemons
     await invokeBot();
-    setInterval(invokeBot, ONE_HOUR);
+    setInterval(invokeBot, CATCH_DELAY);
 
     // setting the interval for the pokestop after every 3 hours
     const POKESTOP_TIMER = 3 * 60 * 60 * 1000;
