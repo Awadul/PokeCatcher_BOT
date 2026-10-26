@@ -72,7 +72,7 @@ client.on('messageUpdate', async (oldMessge, newMessage) => {
             console.log('Clicking Catch Button...');
             await newMessage.clickButton(customId);
 
-        } else if (catchButton.data.label === 'Roll Again') {
+        } else if (catchButton.data?.label === 'Roll Again' || catchButton.label === 'Roll Again') {
             // When 'Roll Again' appears, it means the catch has completed.
             // We remove the lock and send a new /pokemon command.
             if (requestProcessing) {
@@ -115,7 +115,7 @@ const pokeStopCommand = async () => {
         const channel = await client.channels.fetch(process.env.CHANNEL_ID);
         await channel.sendSlash(BOT_ID, 'pokestop');
     } catch (error) {
-        console.error(`[pokemonCommand Error]: `, error);
+        console.error(`[pokeStopCommand Error]: `, error);
     }
 }
 
