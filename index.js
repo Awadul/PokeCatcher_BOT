@@ -3,24 +3,25 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const CATCH_DELAY = process.env.CATCH_DELAY * 60 * 1000;
+const BOT_ID = process.env.BOT_ID;
+const CHANNEL_ID = process.env.CHANNEL_ID;
 
-const client = new Client();
 let remainingCatchedForHour = 0;
 let requestProcessing = false;
 const processedcatchButtons = new Set();
-const CATCH_DELAY = 15 * 60 * 1000;
-const BOT_ID = process.env.BOT_ID;
 
+const client = new Client();
 // messageCreate event => when a message is sent in the channel
 // client.on('messageCreate', async (message) => {
-//     if (message.channel.id === process.env.CHANNEL_ID) { }
+//     if (message.channel.id === CHANNEL_ID) { }
 // })
 
 
 client.on('messageUpdate', async (oldMessge, newMessage) => {
 
     // if the message is not from chosen channel -> return
-    if (newMessage.channel.id !== process.env.CHANNEL_ID) return;
+    if (newMessage.channel.id !== CHANNEL_ID) return;
     // if we didn't create the message -> return
     if (newMessage.author.id !== BOT_ID) return;
 
@@ -101,7 +102,7 @@ const invokeBot = async () => {
 // /pokemon
 const pokemonCommand = async () => {
     try {
-        const channel = await client.channels.fetch(process.env.CHANNEL_ID);
+        const channel = await client.channels.fetch(CHANNEL_ID);
         await channel.sendSlash(BOT_ID, 'pokemon');
     } catch (error) {
         console.error(`[pokemonCommand Error]: `, error);
@@ -112,7 +113,7 @@ const pokemonCommand = async () => {
 // /pokestop
 const pokeStopCommand = async () => {
     try {
-        const channel = await client.channels.fetch(process.env.CHANNEL_ID);
+        const channel = await client.channels.fetch(CHANNEL_ID);
         await channel.sendSlash(BOT_ID, 'pokestop');
     } catch (error) {
         console.error(`[pokeStopCommand Error]: `, error);
