@@ -24,7 +24,7 @@ const getRandomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const scheduleNextCatch = () => {
-    const jitter = getRandomBetween(-120000, 180000);
+    const jitter = getRandomBetween(-30000, 180000);
     const nextInterval = Math.max(CATCH_DELAY + jitter, 5 * 60 * 1000);
     setTimeout(async () => {
         await invokeBot();
@@ -142,9 +142,12 @@ const pokeStopCommand = async () => {
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
 
-    // invoking the bot on start and setting interval for after every 1 hour to catch pokemons
-    await invokeBot();
-    scheduleNextCatch();
+    // delay from 1 to 5 min for first invoke
+    const startDelay = getRandomBetween(10000, 50000);
+    setTimeout(async () => {
+        await invokeBot();
+        scheduleNextCatch();
+    }, startDelay);
 
     // setting the interval for the pokestop after every 3 hours
     const POKESTOP_TIMER = 3 * 60 * 60 * 1000;
