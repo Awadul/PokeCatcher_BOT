@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const CATCH_DELAY = process.env.CATCH_DELAY * 60 * 1000;
+const CATCH_DELAY = (Number(process.env.CATCH_DELAY) || 15) * 60 * 1000;
 const BOT_ID = process.env.BOT_ID;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 
@@ -16,6 +16,21 @@ const client = new Client();
 // client.on('messageCreate', async (message) => {
 //     if (message.channel.id === CHANNEL_ID) { }
 // })
+
+
+// 2500 - 700 + 1 = 1801[0,1) + 700 => [700, 2501)
+const getRandomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1) + min)
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+const scheduleNextCatch = () => {
+    const jitter = getRandomBetween(-120000, 180000);
+    const nextInterval = Math.max(CATCH_DELAY + jitter, 5 * 60 * 1000);
+    setTimeout(async () => {
+        await invokeBot();
+        scheduleNextCatch();
+    }, nextInterval);
+};
 
 
 client.on('messageUpdate', async (oldMessge, newMessage) => {
@@ -71,6 +86,8 @@ client.on('messageUpdate', async (oldMessge, newMessage) => {
             processedcatchButtons.add(customId);
 
             console.log('Clicking Catch Button...');
+            const reactionDelay = getRandomBetween(700, 2500);
+            await sleep(reactionDelay);
             await newMessage.clickButton(customId);
 
         } else if (catchButton.data?.label === 'Roll Again' || catchButton.label === 'Roll Again') {
@@ -81,6 +98,8 @@ client.on('messageUpdate', async (oldMessge, newMessage) => {
                 requestProcessing = false;
 
                 if (remainingCatchedForHour > 0) {
+                    const rollAgainDelay = getRandomBetween(600, 1000);
+                    await sleep(rollAgainDelay);
                     await pokemonCommand();
                 }
             }
@@ -125,7 +144,7 @@ client.once('ready', async () => {
 
     // invoking the bot on start and setting interval for after every 1 hour to catch pokemons
     await invokeBot();
-    setInterval(invokeBot, CATCH_DELAY);
+    scheduleNextCatch();
 
     // setting the interval for the pokestop after every 3 hours
     const POKESTOP_TIMER = 3 * 60 * 60 * 1000;
